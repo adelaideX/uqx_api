@@ -59,6 +59,34 @@ ln -s [BASE_PATH]/wsgi/uqx_api_nginx.conf /etc/nginx/sites-enabled/uqx_api_nginx
 ```
 Check the configuration files in [BASE_PATH]/wsgi for detailed customisation.
 
+**Running with nginx**
+Once settings and conf are configured for nginx then do the following
+Collect the static files
+```bash
+# This collects all files in /static/ directories and puts them in the static ROOT folder.
+python manage.py collectstatic
+```
+Run the application
+```bash
+uwsgi --ini wsgi/api.ini 
+```
+Install and run memcached
+```
+To have launchd start memcached at login:
+  ln -sfv /usr/local/opt/memcached/*.plist ~/Library/LaunchAgents
+Then to load memcached now:
+  launchctl load ~/Library/LaunchAgents/homebrew.mxcl.memcached.plist
+Or, if you don't want/need launchctl, you can just run:
+  /usr/local/opt/memcached/bin/memcached
+```
+Check memcached is running
+```
+lsof -i :11211 | grep 'LISTEN'>/dev/null 2>/dev/null;echo $?
+# returns 0 if daemon is running
+
+```
+
+
 Architecture
 ---------------------
 The architecture of the UQx API follows django conventions and relies on the django-rest-framework framework.  The /api application contains the API.  

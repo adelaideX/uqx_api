@@ -9,10 +9,12 @@ import httplib2
 import os
 import sys
 
-from apiclient.discovery import build
+from googleapiclient.discovery import build
+#from apiclient.discovery import build
 from oauth2client.file import Storage
 from oauth2client.client import OAuth2WebServerFlow
-from oauth2client.tools import run
+#from oauth2client.tools import run
+from oauth2client.tools import run_flow
 from uqx_api import settings
 from optparse import OptionParser
 
@@ -45,7 +47,8 @@ def youtube_setup(course_id, force_load=False):
     if youtube_credentials is None or youtube_credentials.invalid:
         if not force_load:
             return False
-        youtube_credentials = run(flow, storage)
+        youtube_credentials = run_flow(flow, storage)
+        # youtube_credentials = run(flow, storage)
 
     http = youtube_credentials.authorize(httplib2.Http())
     api_youtube = build(youtube_servicename, youtube_version, http=http)

@@ -1,22 +1,22 @@
 Cheetah==2.4.4
 Django==1.6.6
 FormEncode==1.2.4
-GnuPGInterface==0.3.2
+# GnuPGInterface==0.3.2
 M2Crypto==0.21.1
 MySQL-python==1.2.5
-PIL==1.1.7
+# PIL==1.1.7
 Paste==1.7.5.1
 PasteDeploy==1.5.0
 PasteScript==1.7.5
 PyJWT==0.2.1
 PyYAML==3.10
 apache-log-parser==1.4.0
-apt-xapian-index==0.44
+# apt-xapian-index==0.44
 argparse==1.2.1
-basemap==1.0.2
+# basemap==1.0.2
 boto==2.2.2
-chardet==2.0.1
-cloud-init==0.6.3
+# chardet==2.0.1
+# cloud-init==0.6.3
 command-not-found==0.2.44
 configobj==4.7.2
 dap==2.2.6.7

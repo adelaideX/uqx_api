@@ -307,12 +307,46 @@ def student_countries(request, course_id='all'):
         for countrydata in coursedata:
             if countrydata['country'] not in data:
                 data[countrydata['country']] = {'count': 0, 'percentage': 0}
-            data[countrydata['country']]['count'] += countrydata['count']
-            total += countrydata['count']
-    for country in data:
-        data[country]['percentage'] = float(data[country]['count']) / float(total)*100
+            data[countrydata['country']]['count'] = countrydata['count']
+            data[countrydata['country']]['percentage'] = countrydata['percentage']
+            # total += countrydata['count']
+    # for country in data:
+    #     data[country]['percentage'] = float(data[country]['count']) / float(total)*100
     return api.views.api_render(request, data, status.HTTP_200_OK)
 
+@api_view(['GET'])
+@permission_classes((AllowAny, ))
+def student_aus(request, course_id='all'):
+    """
+    Lists
+    """
+    if api.views.is_cached(request):
+        return api.views.api_cacherender(request)
+    courses = []
+    if course_id is 'all':
+        courselist = api.views.get_all_courses()
+        for course in courselist:
+            courses.append(courselist[course]['id'])
+        pass
+    else:
+        course = api.views.get_course(course_id)
+        if course is None:
+            return api.views.api_render(request, {'error': 'Unknown course code'}, status.HTTP_404_NOT_FOUND)
+        courses.append(course['id'])
+    data = OrderedDict()
+    total = 0
+    for course_id in courses:
+        course = api.views.get_course(course_id)
+        coursedata = Log.countcountryenrolments('clickstream', course['mongoname'])
+        for countrydata in coursedata:
+            if countrydata['country'] not in data:
+                data[countrydata['country']] = {'count': 0, 'percentage': 0}
+            data[countrydata['country']]['count'] = countrydata['count']
+            data[countrydata['country']]['percentage'] = countrydata['percentage']
+            # total += countrydata['count']
+    # for country in data:
+    #     data[country]['percentage'] = float(data[country]['count']) / float(total)*100
+    return api.views.api_render(request, data, status.HTTP_200_OK)
 
 @api_view(['GET'])
 def student_dates(request, course_id='all'):

@@ -12,7 +12,7 @@ import dateutil
 from rest_framework.permissions import AllowAny
 import config
 
-from django.db import models
+
 
 # Logging
 import logging
@@ -34,10 +34,11 @@ def meta_courses(request):
         course = OrderedDict()
         course['id'] = db
         course['name'] = str(db).replace('_', ' ')
+        course['shortname'] = str(db).split('_')[0]
         course['icon'] = uqx_api.courses.EDX_DATABASES[db]['icon']
         course['year'] = uqx_api.courses.EDX_DATABASES[db]['year']
         courses.append(course)
-    courses = sorted(courses, key=lambda k: k['year'])
+    courses = sorted(courses, key=lambda k: k['shortname'] + k['year'])
     data = courses
     return api.views.api_render(request, data, status.HTTP_200_OK)
 
@@ -96,8 +97,11 @@ def meta_courseinfo(request):
                         within_per_day += 1
                     total += 1
                     certificates += 1
-                    if userdate < datetime.strptime(course['end'], "%Y-%m-%dT%H:%M:%SZ"):
+                    if course['end'] == "null":
                         duringcourse += 1
+                    else:
+                        if userdate < datetime.strptime(course['end'], "%Y-%m-%dT%H:%M:%SZ"):
+                            duringcourse += 1
 
                 certificates = len(UserCertificate.objects.using(db).filter(status='downloadable'))
 
@@ -145,6 +149,7 @@ def meta_uniques(request):
             total += 1
             if user.user_id not in users:
                 users.append(user.user_id)
+
     data = OrderedDict()
     data['uniques'] = len(users)
     data['total'] = total
@@ -387,14 +392,17 @@ def meta_courseevents(request, course_id='all'):
         courseinfo = json.loads(courseinfo)
         if 'start' in courseinfo:
             course_start = courseinfo['start']
-            print course_start
+            # print course_start
     except Exception as e:
         print "COULDNT PARSE COURSE "+course['id']
         logger.info("COULDNT PARSE COURSE "+course['id'])
         logger.info("COURSE URL: "+str(courseurl))
         logger.info(e)
         pass
-    course_start = datetime.strptime(course_start[:19], '%Y-%m-%dT%H:%M:%S').date()
+    try:
+        course_start = datetime.strptime(course_start[1:20], '%Y-%m-%dT%H:%M:%S').date()
+    except Exception:
+        course_start = datetime.strptime(course_start[1:20], '%Y-%m-%d').date()
 
     #
     db_name = 'Course_Event'

@@ -89,6 +89,7 @@ def endpoints():
     points['student_fullages'] = {'path': 'students/fullages', 'option': 'course_id'}
     points['student_educations'] = {'path': 'students/educations', 'option': 'course_id'}
     points['student_countries'] = {'path': 'students/countries', 'option': 'course_id'}
+    points['student_aus'] = {'path': 'students/countries', 'option': 'course_id'}
     points['student_modes'] = {'path': 'students/modes', 'option': 'course_id'}
     points['student_dates'] = {'path': 'students/dates', 'option': 'course_id'}
     points['student_active'] = {'path': 'students/active', 'option': 'course_id'}

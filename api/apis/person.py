@@ -11,10 +11,12 @@ import httplib2
 import os
 import sys
 
-from apiclient.discovery import build
+# from apiclient.discovery import build
+from googleapiclient.discovery import build
 from oauth2client.file import Storage
 from oauth2client.client import OAuth2WebServerFlow
-from oauth2client.tools import run
+# from oauth2client.tools import run
+from oauth2client.tools import run_flow
 from uqx_api import settings
 from optparse import OptionParser
 

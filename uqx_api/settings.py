@@ -14,6 +14,7 @@ import courses
 import datetime
 import ldap
 from django_auth_ldap.config import LDAPSearch
+import django.contrib.staticfiles
 
 try:
     import config
@@ -207,7 +208,7 @@ STATIC_URL = '/static/'
 #    os.path.join(BASE_DIR, "static"),
 #    '/var/www/static/',
 #)
-STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+STATIC_ROOT = os.path.join(BASE_DIR, "api/static/")
 
 DATABASES = {}
 
@@ -221,8 +222,8 @@ for name in courses.EDX_DATABASES:
         'PORT': config.SQL_PORT,
     }
 
-BRAND = 'UQx'
-BRAND_WEBSITE = 'https://uqx.uq.edu.au'
+BRAND = 'AdelaideX'
+BRAND_WEBSITE = 'https://www.adelaide.edu.au/adelaidex/'
 
 YOUTUBE_CLIENT_ID = config.YOUTUBE_CLIENT_ID
 YOUTUBE_CLIENT_SECRET = config.YOUTUBE_CLIENT_SECRET

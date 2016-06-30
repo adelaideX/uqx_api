@@ -1,5 +1,5 @@
 #SQL Server details
-SQL_HOST = 'localhost'
+SQL_HOST = '127.0.0.1'
 SQL_USERNAME = 'root'
 SQL_PASSWORD = ''
 SQL_PORT = '3306'
