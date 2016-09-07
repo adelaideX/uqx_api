@@ -309,9 +309,9 @@ def student_countries(request, course_id='all'):
                 data[countrydata['country']] = {'count': 0, 'percentage': 0}
             data[countrydata['country']]['count'] = countrydata['count']
             data[countrydata['country']]['percentage'] = countrydata['percentage']
-            # total += countrydata['count']
-    # for country in data:
-    #     data[country]['percentage'] = float(data[country]['count']) / float(total)*100
+            total += countrydata['count']
+    for country in data:
+        data[country]['percentage'] = float(data[country]['count']) / float(total)*100
     return api.views.api_render(request, data, status.HTTP_200_OK)
 
 @api_view(['GET'])
