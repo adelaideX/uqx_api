@@ -289,7 +289,7 @@ def student_countries(request, course_id='all'):
     if api.views.is_cached(request):
         return api.views.api_cacherender(request)
     courses = []
-    if course_id is 'all':
+    if course_id is 'all' or course_id == 'allcourses':
         courselist = api.views.get_all_courses()
         for course in courselist:
             courses.append(courselist[course]['id'])
@@ -307,8 +307,7 @@ def student_countries(request, course_id='all'):
         for countrydata in coursedata:
             if countrydata['country'] not in data:
                 data[countrydata['country']] = {'count': 0, 'percentage': 0}
-            data[countrydata['country']]['count'] = countrydata['count']
-            data[countrydata['country']]['percentage'] = countrydata['percentage']
+            data[countrydata['country']]['count'] += countrydata['count']
             total += countrydata['count']
     for country in data:
         data[country]['percentage'] = float(data[country]['count']) / float(total)*100
