@@ -221,7 +221,7 @@ def loadcourseinfo(json_file):
 
 
 def get_discussions(obj, found=[]):
-    if obj['tag'] == 'discussion' and 'discussion_category' in obj:
+    if obj['tag'] == 'discussion' and 'discussion_category' and 'discussion_id' in obj:
         found.append(obj)
     for child in obj['children']:
         found = get_discussions(child, found)
