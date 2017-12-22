@@ -211,11 +211,13 @@ def student_educations(request, course_id='all'):
         'hs': 'Secondary school',
         'jhs': 'Middle school',
         'el': 'Primary school',
+        'none': 'No formal education',
         'other': 'Other',
         'p_se': 'Doctorate',
         'p_oth': 'Doctorate'
     }
     education = OrderedDict()
+    education['No formal education'] = 0
     education['Primary school'] = 0
     education['Middle school'] = 0
     education['Secondary school'] = 0
