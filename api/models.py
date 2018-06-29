@@ -14,12 +14,13 @@ from datetime import date, datetime, timedelta
 import urllib2
 import json
 
-
 # Logging
 import logging
+
 logger = logging.getLogger(__name__)
 
 connect('logs')
+
 
 class Log(Document):
     status = StringField(required=True)
@@ -43,7 +44,6 @@ class Log(Document):
     time_recieved_datetimeobj = DateTimeField()
     country = StringField()
 
-
     @staticmethod
     def countfield(field, withpercentages=False, collectionname="log"):
         total = 0
@@ -51,7 +51,7 @@ class Log(Document):
              function(cur, result) { result.count += 1 }
         """)
         results = _get_db()[collectionname].group(key={field: 1}, condition={},
-                                      initial={"count": 0}, reduce=reducer)
+                                                  initial={"count": 0}, reduce=reducer)
         if withpercentages:
             for result in results:
                 total += result['count']
@@ -59,37 +59,42 @@ class Log(Document):
         for result in results:
             result['name'] = result[field]
             if withpercentages:
-                result['percentage'] = float(float(result['count'])/float(total))*100
+                result['percentage'] = float(float(result['count']) / float(total)) * 100
             del result[field]
         return results
 
-
     @staticmethod
     def countcountryenrolments(collectionname, course_id):
-        #DO db.clickstream.ensureIndex({country:1})
-        #DO db.clickstream.ensureIndex( {event_type: 1,"context.course_id": 1} )
-        #DO db.clickstream.ensureIndex({"context.course_id": 1})
-        #db.clickstream_tmp.aggregate(    [      { $match : {'context.course_id':'UQx/Think101x/1T2014','event_type':'edx.course.enrollment.activated'} },      { $group : { _id : "$country", thecount: { $sum: 1 } } }    ] )
-        results = _get_db()[collectionname].aggregate([ {"$match":{'context.course_id':course_id,
-                                                                   'event_type':'edx.course.enrollment.activated'}},{"$group":{"_id": "$country", "thecount": { "$sum": 1 } }} ])
+        # DO db.clickstream.ensureIndex({country:1})
+        # DO db.clickstream.ensureIndex( {event_type: 1,"context.course_id": 1} )
+        # DO db.clickstream.ensureIndex({"context.course_id": 1})
+        # db.clickstream_tmp.aggregate(    [      { $match : {'context.course_id':'UQx/Think101x/1T2014','event_type':'edx.course.enrollment.activated'} },      { $group : { _id : "$country", thecount: { $sum: 1 } } }    ] )
+        results = _get_db()[collectionname].aggregate([{"$match": {'context.course_id': course_id,
+                                                                   'event_type': 'edx.course.enrollment.activated'}},
+                                                       {"$group": {"_id": "$country", "thecount": {"$sum": 1}}}])
         results = results['result']
         countries = []
         total = 0
         for result in results:
             total += result['thecount']
         for result in results:
-            country = {'country': result['_id'], 'count': result['thecount'], 'percentage': (float(result['thecount'])*100/float(total))}
+            country = {'country': result['_id'], 'count': result['thecount'],
+                       'percentage': (float(result['thecount']) * 100 / float(total))}
             countries.append(country)
         return countries
 
     @staticmethod
     def find_events(collection_name, course_id):
-        results = _get_db()[collection_name].aggregate([ {"$match":{'context.course_id':course_id}},{"$group": {"_id": "$username", "events":{"$addToSet":"$event_type"}}}])
+        results = _get_db()[collection_name].aggregate([{"$match": {'context.course_id': course_id}}, {
+            "$group": {"_id": "$username", "events": {"$addToSet": "$event_type"}}}])
         return results
 
     @staticmethod
     def activeusersdaily(collectionname, course_id):
-        results = _get_db()[collectionname].aggregate([ {"$match":{'context.course_id':course_id}},{"$group":{"_id": {"$substr":["$time",0,10]}, "users":{"$addToSet":"$username"} }}, {"$unwind":"$users"}, {"$group":{"_id":"$_id","userCount":{"$sum":1}}} ])
+        results = _get_db()[collectionname].aggregate([{"$match": {'context.course_id': course_id}}, {
+            "$group": {"_id": {"$substr": ["$time", 0, 10]}, "users": {"$addToSet": "$username"}}},
+                                                       {"$unwind": "$users"},
+                                                       {"$group": {"_id": "$_id", "userCount": {"$sum": 1}}}])
         results = results['result']
         for user in results:
             user['date'] = user['_id']
@@ -97,13 +102,21 @@ class Log(Document):
 
     @staticmethod
     def activeusersweekly(collectionname, course_id):
-        results = _get_db()[collectionname].aggregate([ {"$match":{'context.course_id':course_id, "time_date": {"$exists": True}}},{"$group":{"_id": {"$concat":[  {"$substr":[{"$year":['$time_date']},0,4]} ,"_",{"$substr":[{"$week":['$time_date']},0,2]}]}, "users":{"$addToSet":"$username"} }}, {"$unwind":"$users"}, {"$group":{"_id":"$_id","userCount":{"$sum":1}}} ])
+        results = _get_db()[collectionname].aggregate(
+            [{"$match": {'context.course_id': course_id, "time_date": {"$exists": True}}}, {"$group": {"_id": {
+                "$concat": [{"$substr": [{"$year": ['$time_date']}, 0, 4]}, "_",
+                            {"$substr": [{"$week": ['$time_date']}, 0, 2]}]}, "users": {"$addToSet": "$username"}}},
+             {"$unwind": "$users"}, {"$group": {"_id": "$_id", "userCount": {"$sum": 1}}}])
         results = results['result']
         return results
 
     @staticmethod
     def eventtypes(collectionname, course_id):
-        results = _get_db()[collectionname].aggregate([ {"$match":{'context.course_id':course_id}},{"$group":{"_id":{"type":"$event_type","date":{"$concat":[  {"$substr":[{"$year":['$time_date']},0,4]} ,"_",{"$substr":[{"$week":['$time_date']},0,2]}]}},"users":{"$addToSet":"$username"} }}, {"$unwind":"$users"}, {"$group":{"_id":"$_id","userCount":{"$sum":1}}}])
+        results = _get_db()[collectionname].aggregate([{"$match": {'context.course_id': course_id}}, {"$group": {
+            "_id": {"type": "$event_type", "date": {"$concat": [{"$substr": [{"$year": ['$time_date']}, 0, 4]}, "_",
+                                                                {"$substr": [{"$week": ['$time_date']}, 0, 2]}]}},
+            "users": {"$addToSet": "$username"}}}, {"$unwind": "$users"},
+                                                       {"$group": {"_id": "$_id", "userCount": {"$sum": 1}}}])
         results = results['result']
         return results
 
@@ -133,14 +146,11 @@ class UserProfile(models.Model):
     year_of_birth = models.CharField(max_length=255)
     level_of_education = models.CharField(max_length=255)
 
-
     class Meta:
         db_table = 'auth_userprofile'
 
 
 class CourseProfile(models.Model):
-
-
     course = models.CharField(max_length=255)
     dbname = models.CharField(max_length=255)
     mongoname = models.CharField(max_length=255)
@@ -289,7 +299,6 @@ class UserCertificate(models.Model):
     modified_date = models.DateTimeField()
     mode = models.CharField(max_length=255)
 
-
     class Meta:
         db_table = 'certificates_generatedcertificate'
 
@@ -323,7 +332,7 @@ class CourseEvent(object):
         self.course = course
         self.table_name = table_name
         self.course_start = course_start
-        #print course_start
+        # print course_start
         cursor = connections[db_name].cursor()
 
         self.events = []
@@ -331,7 +340,7 @@ class CourseEvent(object):
         for col in cursor.fetchall():
             if col[0] not in ['id', 'course_id', 'event_date']:
                 self.events.append(col[0])
-        #print self.events
+        # print self.events
 
         self.event_start = None
         self.event_end = None
@@ -341,9 +350,9 @@ class CourseEvent(object):
             self.course_start = self.event_start
         cursor.execute('SELECT MAX(%s) FROM %s' % ('event_date', table_name))
         self.event_end = cursor.fetchone()[0]
-        #print self.event_start
-        #print type(self.event_start)
-        #print self.event_end
+        # print self.event_start
+        # print type(self.event_start)
+        # print self.event_end
 
         cursor.close()
 
@@ -354,7 +363,7 @@ class CourseEvent(object):
         data['event_end'] = str(self.event_end)
         data['event_display_names'] = self.display_names(data['events'])
 
-        str_events = ', ' . join('SUM(%s)' % e for e in self.events)
+        str_events = ', '.join('SUM(%s)' % e for e in self.events)
 
         cursor = connections[self.db_name].cursor()
         query0 = 'SELECT ' + str_events + ' FROM ' + self.table_name
@@ -364,9 +373,9 @@ class CourseEvent(object):
         happened_event_list = []
         i = 0
         for event in self.events:
-            #sum_event = 's_' + event[2::].replace("$", ".")
+            # sum_event = 's_' + event[2::].replace("$", ".")
             sum_count = int(result0[i])
-            #print type(result0[i])
+            # print type(result0[i])
             sum_events[event] = sum_count
             if sum_count > 0:
                 happened_event_list.append(event)
@@ -377,16 +386,16 @@ class CourseEvent(object):
 
         # happened_events_values is an array of array. The hierarchy is event -- week -- value
         happened_events_values = [[] for i in range(len(happened_event_list))]
-        #print happened_events_values
+        # print happened_events_values
         #
         date_list = []
 
-        str_happened_events = ', ' . join('SUM(%s)' % e for e in happened_event_list)
+        str_happened_events = ', '.join('SUM(%s)' % e for e in happened_event_list)
         query = 'SELECT ' + str_happened_events + ' FROM ' + self.table_name + ' WHERE event_date BETWEEN "%s" AND "%s"'
 
         d1 = self.course_start
         d2 = self.course_start + timedelta(days=6)
-        #week_index = 0
+        # week_index = 0
         while d2 < self.event_end:
             date_list.append(str(d1))
             cursor.execute(query % (d1, d2))
@@ -396,7 +405,7 @@ class CourseEvent(object):
             d1 = d2 + timedelta(days=1)
             d2 = d1 + timedelta(days=6)
 
-        #print happened_events_values
+        # print happened_events_values
         data['date_list'] = date_list
         data['happened_events_values'] = happened_events_values
 
@@ -410,7 +419,6 @@ class CourseEvent(object):
 
         event_display_names = self.get_event_display_names(courseinfo, events)
         return event_display_names
-
 
     @staticmethod
     def loadcourseinfo(json_file):
@@ -432,31 +440,37 @@ class CourseEvent(object):
         event_display_names = {}
         for event in events:
             event_display_names[event] = ''
-            #event_display_names[event[2::].replace("$", ".")] = ''
+            # event_display_names[event[2::].replace("$", ".")] = ''
 
         chapters = []
         chapters = CourseEvent.get_chapters(courseinfo, chapters)
 
         for chapter in chapters:
+            column_name = "u_" + chapter['url_name'].replace(".", "$")
+            for key, value in event_display_names.iteritems():
+                if column_name == key:
+                    event_display_names[key] = chapter.get('display_name', 'url_name') + " (c)"
+                    break
             for sequential in chapter['children']:
                 if sequential['tag'] == 'sequential' and 'children' in sequential:
+                    column_name = "u_" + sequential['url_name'].replace(".", "$")
+                    for key, value in event_display_names.iteritems():
+                        if column_name == key:
+                            event_display_names[key] = sequential.get('display_name', 'url_name')
+                            break
                     for vertical in sequential['children']:
                         if vertical['tag'] == 'vertical' and 'children' in vertical:
+                            # insert code here..
                             for child in vertical['children']:
                                 if 'url_name' in child:
                                     column_name = "u_" + child['url_name'].replace(".", "$")
                                     for key, value in event_display_names.iteritems():
                                         if column_name == key:
-                                            if 'display_name' in child:
-                                                event_display_names[key] = child['display_name']
-                                            else:
-                                                event_display_names[key] = child['url_name']
+                                            # everything at this level is a video so add a (v) so we can change style in output
+                                            event_display_names[key] = child.get('display_name', 'url_name') + " (v)"
                                             break
 
         return event_display_names
-
-
-
 
     @staticmethod
     def get_chapters(obj, found=None):
@@ -475,12 +489,10 @@ class CourseEvent(object):
                 found = CourseEvent.get_chapters(child, found)
         return found
 
-
-
     def counts_group_by_week(self):
-        #str_events = ', ' . join('SUM(%s)' % e for e in self.events)
-        #query = 'SELECT ' + str_events + ' From ' + self.table_name
-        #result = cursor.execute(query).fetchone()
+        # str_events = ', ' . join('SUM(%s)' % e for e in self.events)
+        # query = 'SELECT ' + str_events + ' From ' + self.table_name
+        # result = cursor.execute(query).fetchone()
 
         eventcount = {}
         sum_events = []
@@ -489,7 +501,7 @@ class CourseEvent(object):
             sum_events.append(sum_field)
             eventcount[sum_field] = []
 
-        str_events = ', ' . join('SUM(%s)' % e for e in self.events)
+        str_events = ', '.join('SUM(%s)' % e for e in self.events)
 
         cursor = connections[self.db_name].cursor()
         query = 'SELECT ' + str_events + ' From ' + self.table_name + ' WHERE event_date BETWEEN "%s" AND "%s"'
@@ -497,10 +509,10 @@ class CourseEvent(object):
         d1 = self.course_start
         d2 = self.course_start + timedelta(days=6)
         while d2 < self.event_end:
-            #sum_query = query % (d1, d2)
-            #print d1
-            #print d2
-            #print sum_query
+            # sum_query = query % (d1, d2)
+            # print d1
+            # print d2
+            # print sum_query
             cursor.execute(query % (d1, d2))
             row = cursor.fetchone()
             for index, sum_field in enumerate(sum_events):
@@ -520,7 +532,6 @@ class DiscussionForum(object):
             DiscussionForum.mongo_client = pymongo.MongoClient('localhost', 27017)
         except pymongo.errors.ConnectionFailure, e:
             logger.error("Could not connect to MongoDB: %s" % e)
-
 
     @staticmethod
     def min_date(col_df):
@@ -567,12 +578,11 @@ class DiscussionForum(object):
 
         return {"thread": thread_datecounts, "comment": comment_datecounts, "ccomment": ccomment_datecounts}
 
-
     @staticmethod
     def thread_of_category(col_def, category_id):
         threads = {}
         for thread in col_def.find({"commentable_id": category_id}):
-            threads[thread['_id']] = thread['body'].replace("\n", "  ").replace("\r", "")+" "
+            threads[thread['_id']] = thread['body'].replace("\n", "  ").replace("\r", "") + " "
         return threads
 
     @staticmethod
@@ -604,9 +614,12 @@ class DiscussionForum(object):
 
             if i < popular_number:
                 i += 1
-                ccomm_num = col_def.find({"_type": "Comment", "comment_thread_id": item['_id'], "parent_id": {"$exists": True}}).count()
+                ccomm_num = col_def.find(
+                    {"_type": "Comment", "comment_thread_id": item['_id'], "parent_id": {"$exists": True}}).count()
                 comm_num = total - ccomm_num
-                popular_threads.append({"id": "No " + str(i), "thread_id": str(item['_id']), "body": threads[item['_id']], "comm_num": comm_num, "ccomm_num": ccomm_num})
+                popular_threads.append(
+                    {"id": "No " + str(i), "thread_id": str(item['_id']), "body": threads[item['_id']],
+                     "comm_num": comm_num, "ccomm_num": ccomm_num})
 
             if total <= 3:
                 zone_dict['1 - 3'] += 1
@@ -623,10 +636,10 @@ class DiscussionForum(object):
         zone_list.append({'label': '0 comment', 'number': zone_dict['equal 0']})
         zone_list.append({'label': '1 - 3 comments', 'number': zone_dict['1 - 3']})
         zone_list.append({'label': '4 - 10 comments', 'number': zone_dict['4 - 10']})
-        zone_list.append({'label': 'more than 10 comments', 'number': zone_dict['11 - 30'] + zone_dict['31 - 100'] + zone_dict['more than 100']})
+        zone_list.append({'label': 'more than 10 comments',
+                          'number': zone_dict['11 - 30'] + zone_dict['31 - 100'] + zone_dict['more than 100']})
 
         return {'popular_threads': popular_threads, 'zones': zone_list}
-
 
     @staticmethod
     def sort_by_votes(course, top_number, up_down='up'):
@@ -646,7 +659,6 @@ class DiscussionForum(object):
             post['id'] = str(post.pop('_id'))
             top_thread.append(post)
 
-
         top_comment = []
         for post in col_df.find({"_type": "Comment"}).sort(sort_field, -1).limit(top_number):
             post['id'] = str(post.pop('_id'))
@@ -661,7 +673,6 @@ class DiscussionForum(object):
             top_comment.append(post)
 
         return {"threads": top_thread, "comments": top_comment}
-
 
     @staticmethod
     def sort_by_answer(course, answer_num):
@@ -706,11 +717,12 @@ class DiscussionForum(object):
                 if post_date not in comment_thread_datecounts:
                     comment_thread_datecounts[post_date] = 0
                 comment_thread_datecounts[post_date] += 1
-                
-        return {"comment": comment_datecounts, "comment_thread": comment_thread_datecounts, 'min_date': min_date, 'max_date': max_date}
+
+        return {"comment": comment_datecounts, "comment_thread": comment_thread_datecounts, 'min_date': min_date,
+                'max_date': max_date}
 
     @staticmethod
-    #changed
+    # changed
     def posts_gb_users(course):
         db_df = DiscussionForum.mongo_client['discussion_forum']
         col_df_name = course['discussiontable']
@@ -726,32 +738,33 @@ class DiscussionForum(object):
         return user_post_dict
 
     @staticmethod
-    #changed
+    # changed
     def users_gb_countries(course):
         db_logs = DiscussionForum.mongo_client['logs']
         col_logs = db_logs['clickstream']
 
         users_gb_countries = col_logs.aggregate([
-            {"$match": {"context.course_id": course['mongoname'], 'event_type':'edx.course.enrollment.activated'}},
+            {"$match": {"context.course_id": course['mongoname'], 'event_type': 'edx.course.enrollment.activated'}},
             {"$group": {"_id": "$country", "userSum": {"$sum": 1}}}
         ])['result']
 
         return users_gb_countries
 
     @staticmethod
-    #changed
+    # changed
     def user_2_country(course, uid_list):
         db_logs = DiscussionForum.mongo_client['logs']
         col_logs = db_logs['clickstream']
 
         user_2_country = col_logs.aggregate([
-            {"$match": {"context.course_id": course['mongoname'], "context.user_id": {"$in": uid_list}, "country": {"$ne": None}}},
+            {"$match": {"context.course_id": course['mongoname'], "context.user_id": {"$in": uid_list},
+                        "country": {"$ne": None}}},
             {"$group": {"_id": "$context.user_id", "countrySet": {"$addToSet": "$country"}}},
         ])['result']
         return user_2_country
 
     @staticmethod
-    #changed
+    # changed
     def post_user_country(course):
         user_post_dict = DiscussionForum.posts_gb_users(course)
         if user_post_dict:
@@ -771,34 +784,5 @@ class DiscussionForum(object):
 
         country_enrol = DiscussionForum.users_gb_countries(course)
 
-        #return {"country_post": country_list, "post_max": post_max, "country_post_enrol": country_post_enrol_list, "post_enrol_max": post_enrol_max}
+        # return {"country_post": country_list, "post_max": post_max, "country_post_enrol": country_post_enrol_list, "post_enrol_max": post_enrol_max}
         return {"country_dict": country_dict, "country_enrol": country_enrol}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
