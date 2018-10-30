@@ -22,6 +22,27 @@ logger = logging.getLogger(__name__)
 connect('logs')
 
 
+class Coursemap(models.Model):
+    ad_content = models.CharField(max_length=255, primary_key=True)
+    course_id = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = 'coursemap'
+
+
+class Conversions(models.Model):
+    date = models.DateField()
+    campaign = models.CharField(max_length=255)
+    source = models.CharField(max_length=255)
+    ad_content = models.ForeignKey('Coursemap', db_column='ad_content')
+    enrollment_serverside = models.CharField(max_length=255)
+    transactions = models.CharField(max_length=255)
+    revenue = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = 'conversions'
+
+
 class Log(Document):
     status = StringField(required=True)
     request_header_referer = StringField(required=True)

@@ -3,11 +3,12 @@ import urllib2
 import api.views
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from api.models import UserProfile, UserEnrol, Log, StudentModule, PersonCourse
+from api.models import UserProfile, UserEnrol, Log, StudentModule, PersonCourse, Conversions, Coursemap
 from collections import OrderedDict
 import datetime
 from dateutil.relativedelta import relativedelta
 from rest_framework.permissions import AllowAny
+from django.db.models import Q
 import dateutil
 import config
 import dateutil.parser
@@ -15,10 +16,12 @@ import uqx_api.courses
 
 # Logging
 import logging
+
 logger = logging.getLogger(__name__)
 
+
 @api_view(['GET'])
-@permission_classes((AllowAny, ))
+@permission_classes((AllowAny,))
 def student_genders(request, course_id='all'):
     """
     Lists all genders for the enrolled students
@@ -47,7 +50,7 @@ def student_genders(request, course_id='all'):
         if 'cutoff' in request.GET and request.GET['cutoff'] == 'true':
             paced_students = get_paced_students(request, course)
         for user in UserProfile.objects.using(course).all():
-            #print user
+            # print user
             if user.gender in gender_map:
                 user.gender = gender_map[str(user.gender)]
             else:
@@ -65,7 +68,7 @@ def student_genders(request, course_id='all'):
 
 
 @api_view(['GET'])
-@permission_classes((AllowAny, ))
+@permission_classes((AllowAny,))
 def student_ages(request, course_id='all'):
     """
     Lists all ages for the enrolled students
@@ -136,7 +139,7 @@ def student_ages(request, course_id='all'):
 
 
 @api_view(['GET'])
-@permission_classes((AllowAny, ))
+@permission_classes((AllowAny,))
 def student_fullages(request, course_id='all'):
     """
     Lists all ages for the enrolled students
@@ -185,7 +188,7 @@ def student_fullages(request, course_id='all'):
 
 
 @api_view(['GET'])
-@permission_classes((AllowAny, ))
+@permission_classes((AllowAny,))
 def student_educations(request, course_id='all'):
     """
     Lists all prior education levels for the enrolled students
@@ -245,7 +248,7 @@ def student_educations(request, course_id='all'):
 
 
 @api_view(['GET'])
-@permission_classes((AllowAny, ))
+@permission_classes((AllowAny,))
 def student_modes(request, course_id='all'):
     """
     Lists all modes of enrolment for the enrolled students
@@ -263,7 +266,7 @@ def student_modes(request, course_id='all'):
         if course is None:
             return api.views.api_render(request, {'error': 'Unknown course code'}, status.HTTP_404_NOT_FOUND)
         courses.append(course['id'])
-    modes = {'audit':0,'honor':0,'verified':0}
+    modes = {'audit': 0, 'honor': 0, 'verified': 0}
     total = 0
 
     for course in courses:
@@ -283,7 +286,7 @@ def student_modes(request, course_id='all'):
 
 
 @api_view(['GET'])
-@permission_classes((AllowAny, ))
+@permission_classes((AllowAny,))
 def student_countries(request, course_id='all'):
     """
     Lists
@@ -312,11 +315,12 @@ def student_countries(request, course_id='all'):
             data[countrydata['country']]['count'] += countrydata['count']
             total += countrydata['count']
     for country in data:
-        data[country]['percentage'] = float(data[country]['count']) / float(total)*100
+        data[country]['percentage'] = float(data[country]['count']) / float(total) * 100
     return api.views.api_render(request, data, status.HTTP_200_OK)
 
+
 @api_view(['GET'])
-@permission_classes((AllowAny, ))
+@permission_classes((AllowAny,))
 def student_aus(request, course_id='all'):
     """
     Lists
@@ -349,6 +353,7 @@ def student_aus(request, course_id='all'):
     #     data[country]['percentage'] = float(data[country]['count']) / float(total)*100
     return api.views.api_render(request, data, status.HTTP_200_OK)
 
+
 @api_view(['GET'])
 def student_dates(request, course_id='all'):
     if api.views.is_cached(request):
@@ -369,7 +374,8 @@ def student_dates(request, course_id='all'):
         for user in UserEnrol.objects.using(course).all():
             thedate = user.created.strftime('%Y-%m-%d')
             if thedate not in data:
-                data[thedate] = {'enrolled': 0, 'active': 0, 'aggregate_enrolled': 0, 'aggregate_active': 0}
+                data[thedate] = {'enrolled': 0, 'active': 0, 'aggregate_enrolled': 0, 'aggregate_active': 0,
+                                 'mkt_enrolled': 0, 'mkt_verified': 0}
             data[thedate]['enrolled'] += 1
             if user.is_active == "1":
                 data[thedate]['active'] += 1
@@ -378,11 +384,23 @@ def student_dates(request, course_id='all'):
 
     count = 0
     activecount = 0
+    if course_id is 'all':
+        conversions = Conversions.objects.using("googleanalytics")
+    else:
+        conversions = Conversions.objects.using("googleanalytics").prefetch_related('ad_content').filter(
+            ad_content__course_id=course_id)
     for date in data:
         count += data[date]['enrolled']
         activecount += data[date]['active']
         data[date]['aggregate_enrolled'] = count
         data[date]['aggregate_active'] = activecount
+        # loop through the list of conversions for the course
+        for conversion in conversions:
+            cdate = conversion.date.strftime('%Y-%m-%d')
+            if cdate == date:
+                data[date]['mkt_enrolled'] += int(conversion.enrollment_serverside)
+                data[date]['mkt_verified'] += int(conversion.transactions)
+
     return api.views.api_render(request, data, status.HTTP_200_OK)
 
 
@@ -443,12 +461,14 @@ def student_in_age_range_xx(courses, age_range):
         end_year_of_birth = course_year - age_range['start']
 
         # Get all user_id who is in age_range
-        for user in UserProfile.objects.using(course).filter(year_of_birth__range=(start_year_of_birth, end_year_of_birth)):
+        for user in UserProfile.objects.using(course).filter(
+                year_of_birth__range=(start_year_of_birth, end_year_of_birth)):
             user_in_range_ids.append(user.user_id)
         sum_in_range += len(user_in_range_ids)
 
         # Get all user_id who provided year_of_birth
-        for user in UserProfile.objects.using(course).filter(year_of_birth__isnull=False).exclude(year_of_birth__iexact='NULL'):
+        for user in UserProfile.objects.using(course).filter(year_of_birth__isnull=False).exclude(
+                year_of_birth__iexact='NULL'):
             user_known_age_ids.append(user.user_id)
         sum_known_age += len(user_known_age_ids)
 
@@ -487,7 +507,8 @@ def student_in_age_range_xx(courses, age_range):
             d1 += datetime.timedelta(days=1)
         if user_known_age_week > 0:
             week_percentage = round(user_in_range_week * 100 / float(user_known_age_week), 2)
-            week_data[week] = {'user_known_age': user_known_age_week, 'user_in_range': user_in_range_week, 'percentage': week_percentage}
+            week_data[week] = {'user_known_age': user_known_age_week, 'user_in_range': user_in_range_week,
+                               'percentage': week_percentage}
 
     # Accumulating monthly
     month_data = OrderedDict()
@@ -503,7 +524,8 @@ def student_in_age_range_xx(courses, age_range):
                 user_in_range_month += day_data[date]['user_in_range']
         if user_known_age_month > 0:
             month_percentage = round(user_in_range_month * 100 / float(user_known_age_month), 2)
-            month_data[d1.strftime('%Y-%m-%d')] = {'user_known_age': user_known_age_month, 'user_in_range': user_in_range_month, 'percentage': month_percentage}
+            month_data[d1.strftime('%Y-%m-%d')] = {'user_known_age': user_known_age_month,
+                                                   'user_in_range': user_in_range_month, 'percentage': month_percentage}
         d1 = d2
 
     day_data_str = OrderedDict()
@@ -549,7 +571,7 @@ def student_active(request, course_id='all'):
         for week in activeusersweekly:
             theyear = week['_id'][0:4]
             theweek = week['_id'][5:].zfill(2)
-            realdate = datetime.datetime.strptime(theyear+theweek+'1', '%Y%W%w')
+            realdate = datetime.datetime.strptime(theyear + theweek + '1', '%Y%W%w')
             thedate = realdate.strftime("%Y-%m-%d")
             if thedate not in data['weeks']:
                 dataweeks[thedate] = 0
@@ -574,13 +596,13 @@ def student_activity(request, course_id='all'):
     if course is None:
         return api.views.api_render(request, {'error': 'Unknown course code'}, status.HTTP_404_NOT_FOUND)
 
-    #Course Structure Read
+    # Course Structure Read
     filename = course['dbname'].replace("_", "-")
-    courseurl = config.SERVER_URL + '/datasources/course_structure/'+filename+'.json'
+    courseurl = config.SERVER_URL + '/datasources/course_structure/' + filename + '.json'
     validelements = []
     structure = {}
     try:
-        data = urllib2.urlopen(courseurl).read().replace('<script','').replace('</script>','')
+        data = urllib2.urlopen(courseurl).read().replace('<script', '').replace('</script>', '')
     except:
         return api.views.api_render(request, {'error': 'Could not find course file'}, status.HTTP_404_NOT_FOUND)
     print "Loading structure"
@@ -589,12 +611,12 @@ def student_activity(request, course_id='all'):
     for week in structure['children']:
         seqnumber = 1
         for sequential in week['children']:
-            uid = 'Week '+str(weeknumber)+"."+str(seqnumber)
+            uid = 'Week ' + str(weeknumber) + "." + str(seqnumber)
             element = {
                 'week': str(weeknumber),
                 'tag': sequential['tag'],
                 'url_name': sequential['url_name'],
-                'uid': uid+" Sequence"+"_url_"+sequential['url_name']
+                'uid': uid + " Sequence" + "_url_" + sequential['url_name']
             }
             validelements.append(element)
             for vertical in sequential['children']:
@@ -605,7 +627,7 @@ def student_activity(request, course_id='all'):
                             'week': str(weeknumber),
                             'tag': problem['tag'],
                             'url_name': problem['url_name'],
-                            'uid': uid+" "+problem['tag']+" "+str(probnumber)+"_url_"+problem['url_name']
+                            'uid': uid + " " + problem['tag'] + " " + str(probnumber) + "_url_" + problem['url_name']
                         }
                         if 'display_name' in problem:
                             element['display_name'] = problem['display_name']
@@ -613,40 +635,42 @@ def student_activity(request, course_id='all'):
                         probnumber += 1
             seqnumber += 1
         weeknumber += 1
-        #break
+        # break
     start_date = dateutil.parser.parse(structure['start'])
     print "Loaded structure"
     weeks = []
     weeks.append(start_date)
     print "Working out weeks"
     last_date = start_date
-    for i in range(0,10):
-        last_date = last_date+datetime.timedelta(days=7)
+    for i in range(0, 10):
+        last_date = last_date + datetime.timedelta(days=7)
         weeks.append(last_date)
     print "Worked out weeks"
 
-    #clickstreamdata = Log.find_events('clickstream_hypers_301x_sample', course['mongoname'])
-    #print clickstreamdata
-
+    # clickstreamdata = Log.find_events('clickstream_hypers_301x_sample', course['mongoname'])
+    # print clickstreamdata
 
     data = []
     print "Starting elements"
     elcount = 0
     for element in validelements:
-        print "starting element "+str(elcount)+"/"+str(len(validelements))+ " time difference is "+str(datetime.datetime.now() - starttime)+" seconds"
+        print "starting element " + str(elcount) + "/" + str(len(validelements)) + " time difference is " + str(
+            datetime.datetime.now() - starttime) + " seconds"
         activity = OrderedDict()
         activity['Activity'] = {'url': element['url_name'], 'tag': element['tag'], 'uid': element['uid']}
         if 'week' in element:
             activity['Activity']['week'] = element['week']
         i = 1
         for week in weeks:
-            nextweek = week+datetime.timedelta(days=7)
-            activity['Week '+str(i)] = StudentModule.objects.using(course_id).filter(module_id__contains=element['url_name'], created__range=[week, nextweek]).values('student_id').distinct().count()
+            nextweek = week + datetime.timedelta(days=7)
+            activity['Week ' + str(i)] = StudentModule.objects.using(course_id).filter(
+                module_id__contains=element['url_name'], created__range=[week, nextweek]).values(
+                'student_id').distinct().count()
             i += 1
         data.append(activity)
         elcount += 1
     print "Finished elements"
-    print "TIME DIFFERENCE "+str(datetime.datetime.now() - starttime)+" SECONDS"
+    print "TIME DIFFERENCE " + str(datetime.datetime.now() - starttime) + " SECONDS"
     return api.views.api_render(request, data, status.HTTP_200_OK)
 
 
@@ -655,8 +679,8 @@ def student_personcourse(request, course_id='all'):
     """
     Lists all genders for the enrolled students
     """
-    #Disable cache for the time being
-    #if api.views.is_cached(request):
+    # Disable cache for the time being
+    # if api.views.is_cached(request):
     #    return api.views.api_cacherender(request)
     fields = None
     if 'fields' in request.GET:
@@ -667,8 +691,8 @@ def student_personcourse(request, course_id='all'):
         return api.views.api_render(request, {'error': 'Unknown course code'}, status.HTTP_404_NOT_FOUND)
     courses.append(course['dbname'])
     data = []
-    PersonCourse._meta.db_table = 'personcourse_'+course_id
-    pc_exists = api.views.db_table_exists('personcourse',PersonCourse._meta.db_table)
+    PersonCourse._meta.db_table = 'personcourse_' + course_id
+    pc_exists = api.views.db_table_exists('personcourse', PersonCourse._meta.db_table)
     if pc_exists:
         paced_students = None
         if 'cutoff' in request.GET and request.GET['cutoff'] == 'true':
@@ -683,13 +707,13 @@ def student_personcourse(request, course_id='all'):
 def get_paced_students(request, course):
     thecourse = api.views.get_course(course)
     students = []
-    filename = thecourse['dbname'].replace("_","-")
-    courseurl = config.SERVER_URL + '/datasources/course_structure/'+filename+'.json'
+    filename = thecourse['dbname'].replace("_", "-")
+    courseurl = config.SERVER_URL + '/datasources/course_structure/' + filename + '.json'
     print courseurl
     end_date = ""
     data = '[]'
     try:
-        data = urllib2.urlopen(courseurl).read().replace('<script','').replace('</script>','')
+        data = urllib2.urlopen(courseurl).read().replace('<script', '').replace('</script>', '')
     except:
         return api.views.api_render(request, {'error': 'Could not load course data'}, status.HTTP_404_NOT_FOUND)
     data = json.loads(data)
