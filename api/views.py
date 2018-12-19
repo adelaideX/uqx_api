@@ -183,6 +183,7 @@ def get_all_courses():
     del courses['default']
     del courses['personcourse']
     del courses['Course_Event']
+    del courses['googleanalytics']
     return courses
 
 
