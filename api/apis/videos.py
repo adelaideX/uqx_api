@@ -36,8 +36,13 @@ def youtube_setup(course_id, force_load=False):
     flow = OAuth2WebServerFlow(client_id=settings.YOUTUBE_CLIENT_ID,
                            client_secret=settings.YOUTUBE_CLIENT_SECRET,
                            scope=" ".join(youtube_scopes))
+    # / Users / a1221478 / moocczar / uqx_api / cache / youtube_Cyber101x_1T2016_oauth2.json
+    # dirname = os.path.dirname(__file__)
+    dirname = os.path.abspath(os.path.dirname(__name__))
+    storage_path = "cache/youtube_"+course_id+"_oauth2.json"
+    filename = os.path.join(dirname, storage_path)
 
-    storage = Storage("cache/youtube_"+course_id+"_oauth2.json")
+    storage = Storage(filename)
     youtube_credentials = storage.get()
 
     print "AAA"
@@ -106,7 +111,7 @@ def videos_views(request, course_id):
     if course is None:
         return api.views.api_render(request, {'error': 'Unknown course code'}, status.HTTP_404_NOT_FOUND)
 
-    doauth = False
+    doauth = True
 
     if 'doauth' in request.GET and request.GET['doauth'] == 'true':
         doauth = True
